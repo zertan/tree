@@ -1,0 +1,98 @@
+(ns trie.core
+  (:gen-class))
+
+(require '[clojure.string :as str])
+
+(defn load-sequence
+  "Loads a text file and splits its characters into a vector of keywords."
+  [filename]
+  (let [seqs (slurp filename)]
+    (map keyword (str/split (str/replace seqs #"[\n\r]" "") #""))))
+    ;;     (-> seqs
+    ;;         (str/replace #"[\n\r]" "")
+    ;;         str/split #""))))
+
+(defn node
+  [& {:keys [nr-leaves]
+      :or {nr-leaves 0}}]
+  {:nr-leaves nr-leaves})
+
+(defn add-next
+  "Adds an empty node via keyword 'next-key'."
+  [this-node next-key]
+  (if-not (contains? this-node next-key)
+    (conj this-node {next-key (node)})
+    this-node))
+
+(defn add-to-trie
+  "Adds empty nodes via last letter of seqs to 'failure transition' nodes."
+  [trie seqs]
+  (if-not (next seqs)
+    (add-next trie (peek (into [] seqs)))
+    (recur
+     (update-in trie
+                (pop (into [] seqs))
+                add-next (peek (into [] seqs)))
+     (next seqs))))
+
+(defn add-to-trie
+  "Adds empty nodes via last letter of seqs to 'failure transition' nodes."
+  [trie seqs]
+  (if-not (next seqs)
+    (add-next trie (last seqs))
+    (recur
+     ;;(let [current-node
+           
+     (if-not (contains? (get-in trie (pop (into [] seqs))) (last seqs))
+       (assoc-in trie seqs (node))
+       trie)
+     ;;(update-in trie
+     ;;           (drop-last seqs)
+     ;;           add-next (last seqs))
+     (next seqs))))
+
+(defn my-update-in
+  ([m ks f & args])
+  (let [up (fn up [m ks f args])]
+    (let [[k & ks] ks]
+      (if ks
+        (assoc m k (up (get m k) ks f args))
+        (assoc m k (apply f (get m k) args)))
+      (up m ks f args))))
+   
+(defn build-trie
+  "Returns a trie representing seqs by successive construction of subtries according to [1]."
+  [in-trie seqs]
+  (loop [trie in-trie
+         left-seqs [(first seqs)]
+         right-seqs (rest seqs)]
+    (if-not right-seqs
+      (add-to-trie trie left-seqs)
+      (recur (add-to-trie trie left-seqs)
+             (conj left-seqs (first right-seqs))
+             (next right-seqs)))))
+
+(def seqs (load-sequence "f:/random.txt"))
+
+(defn triew
+  [seqs]
+  (build-trie (node) seqs)
+  (println "a"))
+  
+(defn triew
+  [seqs]
+  (do
+    (let [tr (build-trie (node) (take 241 seqs))]
+      (build-trie tr (take 242 seqs))
+      (get-in tr (into [] (take 240 seqs))))))
+
+(defn -main [& args]
+  (let [seqs (load-sequence "f:\random.txt")]
+    (triew seqs)))
+
+  ;;(build-trie (load-sequence (first args))))
+  ;;(build-trie '(:c :a :c :a :g :t :t :t :g :c :c)))
+  
+;; References
+;; 1. E. Ukkonen and D. Wood, Approximate string matching with suffix automata, Algorithmica 10 (1993), 353–364.
+;; 2. Ukkonen, E. 1995, "On-line construction of suffix trees", Algorithmica, vol. 14, no. 3, pp. 249-260.
